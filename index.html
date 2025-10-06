@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
+        /* Ваші стилі залишаються незмінними */
         :root {
             --neon-cyan: #0ff;
             --neon-pink: #f0f;
@@ -302,6 +303,23 @@
             font-size: 0.9em;
         }
 
+        .my-games {
+            margin-top: 20px;
+            border-top: 1px solid var(--neon-purple);
+            padding-top: 20px;
+        }
+
+        .my-game-item {
+            background: rgba(20, 20, 40, 0.7);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 6px;
+            padding: 10px;
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         @media (max-width: 480px) {
             h1 {
                 font-size: 2rem;
@@ -347,6 +365,12 @@
                     <input type="text" id="join-game-id" placeholder="Введіть ID гри" maxlength="8">
                 </div>
                 <button class="cyber-button" onclick="joinGame()">🔗 Приєднатись</button>
+            </div>
+
+            <!-- НОВИЙ БЛОК: Мої ігри -->
+            <div class="my-games">
+                <h4>🎮 Мої створені ігри</h4>
+                <div id="my-games-list"></div>
             </div>
 
             <div id="connection-status" class="status">
@@ -429,6 +453,88 @@
 
         let gameRef = null;
 
+        // Зберігаємо створені ігри в localStorage
+        function saveMyGame(gameId) {
+            let myGames = JSON.parse(localStorage.getItem('myTicTacToeGames') || '[]');
+            if (!myGames.includes(gameId)) {
+                myGames.push(gameId);
+                localStorage.setItem('myTicTacToeGames', JSON.stringify(myGames));
+            }
+            loadMyGames();
+        }
+
+        function loadMyGames() {
+            const myGames = JSON.parse(localStorage.getItem('myTicTacToeGames') || '[]');
+            const gamesList = document.getElementById('my-games-list');
+            gamesList.innerHTML = '';
+
+            if (myGames.length === 0) {
+                gamesList.innerHTML = '<p style="opacity: 0.7; font-size: 0.9em;">У вас ще немає створених ігор</p>';
+                return;
+            }
+
+            myGames.forEach(gameId => {
+                const gameItem = document.createElement('div');
+                gameItem.className = 'my-game-item';
+                gameItem.innerHTML = `
+                    <span>ID: ${gameId}</span>
+                    <div>
+                        <button class="cyber-button" onclick="joinMyGame('${gameId}', true)" style="padding: 6px 12px; font-size: 0.8em;">🎮 Як Гравець 1 (X)</button>
+                        <button class="cyber-button" onclick="joinMyGame('${gameId}', false)" style="padding: 6px 12px; font-size: 0.8em;">🔗 Як Гравець 2 (O)</button>
+                    </div>
+                `;
+                gamesList.appendChild(gameItem);
+            });
+        }
+
+        function joinMyGame(gameId, asHost) {
+            currentGame.id = gameId;
+            currentGame.isHost = asHost;
+            currentGame.mySymbol = asHost ? 'X' : 'O';
+
+            gameRef = database.ref('games/' + gameId);
+            
+            gameRef.once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const gameData = snapshot.val();
+                        
+                        if (asHost) {
+                            // Гравець 1 підключається до своєї гри
+                            gameRef.update({
+                                'players/player1/connected': true,
+                                'lastUpdate': Date.now()
+                            })
+                            .then(() => {
+                                console.log('🎮 Гравець 1 приєднався до своєї гри:', gameId);
+                                showGameSection();
+                                setupGameListener();
+                                addChatMessage('Система', '✅ Ви приєдналися до гри як Гравець 1 (X)');
+                            });
+                        } else {
+                            // Гравець 2 підключається
+                            gameRef.update({
+                                'players/player2/connected': true,
+                                'gameState': 'playing',
+                                'lastUpdate': Date.now()
+                            })
+                            .then(() => {
+                                console.log('🔗 Приєднано до гри:', gameId);
+                                showGameSection();
+                                setupGameListener();
+                                addChatMessage('Система', '✅ Ви приєдналися до гри як Гравець 2 (O)');
+                            });
+                        }
+                    } else {
+                        alert('Гра з таким ID не знайдена!');
+                    }
+                })
+                .catch((error) => {
+                    console.error('❌ Помилка приєднання:', error);
+                    alert('Помилка приєднання до гри: ' + error.message);
+                });
+        }
+
         // Генерація ID гри
         function generateGameId() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -439,12 +545,15 @@
             return result;
         }
 
-        // Створення гри (тільки показуємо ID, не створюємо в Firebase)
+        // Створення гри
         function createGame() {
             const gameId = generateGameId();
             currentGame.id = gameId;
             
-            // Показуємо інформацію про гру, але НЕ переходимо відразу
+            // Зберігаємо гру в localStorage
+            saveMyGame(gameId);
+            
+            // Показуємо інформацію про гру
             document.getElementById('game-id').textContent = gameId;
             document.getElementById('game-info').classList.remove('hidden');
             
@@ -455,7 +564,7 @@
             document.getElementById('connection-status').className = 'status';
         }
 
-        // Вхід в гру як хост (після копіювання посилання)
+        // Вхід в гру як хост
         function enterGameAsHost() {
             currentGame.isHost = true;
             currentGame.mySymbol = 'X';
@@ -827,25 +936,37 @@
 
             gameRef.update(resetData)
                 .then(() => {
-                    addChatMessage('Система', '🔄 Гра перезапущена');
+                    // Оновлюємо локальний стан гри
+                    currentGame.board = ['', '', '', '', '', '', '', '', ''];
+                    currentGame.currentPlayer = 'X';
+                    currentGame.gameOver = false;
+                    currentGame.gameState = 'playing';
+                    
+                    drawBoard();
+                    updateGameStatus();
+                    addChatMessage('Система', '🔄 Гра перезапущена!');
                 })
                 .catch((error) => {
-                    console.error('❌ Помилка скидання гри:', error);
+                    console.error('❌ Помилка перезапуску гри:', error);
                 });
         }
 
         function backToMenu() {
             if (gameRef) {
-                gameRef.off(); // Відписуємось від оновлень
+                gameRef.off();
+                
+                // Оновлюємо статус підключення гравця
+                if (currentGame.isHost) {
+                    gameRef.child('players/player1/connected').set(false);
+                } else {
+                    gameRef.child('players/player2/connected').set(false);
+                }
             }
-            
+
             document.getElementById('game-section').classList.add('hidden');
             document.getElementById('connection-panel').classList.remove('hidden');
-            document.getElementById('game-info').classList.add('hidden');
-            document.getElementById('connection-status').textContent = 'Оберіть дію вище';
             
-            document.getElementById('chat-box').innerHTML = '';
-            
+            // Скидаємо поточну гру
             currentGame = {
                 id: null,
                 isHost: false,
@@ -858,26 +979,35 @@
         }
 
         function copyLink() {
-            const gameUrl = `${window.location.origin}${window.location.pathname}?game=${currentGame.id}`;
-            navigator.clipboard.writeText(gameUrl).then(() => {
-                alert('✅ Посилання скопійовано! Тепер надішліть його другу.');
-            });
+            const shareLink = document.getElementById('share-link').textContent;
+            navigator.clipboard.writeText(shareLink)
+                .then(() => {
+                    const status = document.getElementById('connection-status');
+                    status.textContent = '✅ Посилання скопійовано!';
+                    status.className = 'status connected';
+                })
+                .catch(err => {
+                    console.error('❌ Помилка копіювання:', err);
+                    alert('Помилка копіювання посилання');
+                });
         }
 
-        // Автоматичне приєднання при завантаженні
-        window.addEventListener('load', () => {
+        // Перевірка URL на наявність ID гри
+        function checkUrlForGameId() {
             const urlParams = new URLSearchParams(window.location.search);
             const gameId = urlParams.get('game');
             
             if (gameId) {
                 document.getElementById('join-game-id').value = gameId;
-                setTimeout(() => joinGame(), 1000);
+                document.getElementById('join-game-id').focus();
             }
-        });
+        }
 
-        document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
+        // Ініціалізація
+        window.onload = function() {
+            loadMyGames();
+            checkUrlForGameId();
+        };
     </script>
 </body>
 </html>
