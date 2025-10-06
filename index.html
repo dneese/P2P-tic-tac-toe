@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Хрестики-Ноліки з Firebase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --neon-cyan: #0ff;
+            --neon-pink: #f0f;
+            --neon-purple: #906cff;
+            --neon-green: #0f0;
+            --dark-bg: #0a0a16;
+            --darker-bg: #050510;
+            --grid-color: #1a1a2e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--darker-bg);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', monospace;
+            color: white;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px var(--neon-cyan);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .connection-panel {
+            background: rgba(20, 20, 40, 0.9);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 8px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .game-id {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            color: var(--neon-green);
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+        }
+
+        .cyber-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 5px;
+            background: linear-gradient(135deg, var(--neon-purple), #6a00ff);
+            color: white;
+            box-shadow: 0 0 15px rgba(144, 108, 255, 0.5);
+            border: 1px solid var(--neon-cyan);
+        }
+
+        .cyber-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(144, 108, 255, 0.8);
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+
+        .input-group input {
+            padding: 10px;
+            border: 1px solid var(--neon-purple);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 1rem;
+            width: 200px;
+            text-align: center;
+        }
+
+        .status {
+            margin: 10px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            background: rgba(144, 108, 255, 0.2);
+            border: 1px solid var(--neon-purple);
+        }
+
+        .status.connected {
+            background: rgba(0, 255, 0, 0.2);
+            border-color: var(--neon-green);
+        }
+
+        .status.waiting {
+            background: rgba(255, 165, 0, 0.2);
+            border-color: orange;
+        }
+
+        .game-board {
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1/1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px;
+            background: var(--grid-color);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid var(--neon-purple);
+            box-shadow: 0 0 20px rgba(144, 108, 255, 0.3);
+        }
+
+        .cell {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(144, 108, 255, 0.3);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .cell:hover {
+            transform: translateY(-3px);
+            border-color: var(--neon-cyan);
+        }
+
+        .cell.x {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        .cell.o {
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        .cell.win {
+            animation: winPulse 1.5s infinite;
+            background: rgba(144, 108, 255, 0.2);
+            border-color: var(--neon-green);
+        }
+
+        @keyframes winPulse {
+            0% { transform: scale(1); box-shadow: 0 0 10px var(--neon-green); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px var(--neon-green); }
+            100% { transform: scale(1); box-shadow: 0 0 10px var(--neon-green); }
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            margin-bottom: 10px;
+        }
+
+        .player-turn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(10, 10, 30, 0.7);
+            border-radius: 8px;
+            border: 1px solid var(--neon-purple);
+        }
+
+        .player-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .player-x {
+            background: var(--neon-cyan);
+            color: var(--dark-bg);
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        .player-o {
+            background: var(--neon-pink);
+            color: var(--dark-bg);
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        .players-info {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 400px;
+            margin: 10px 0;
+        }
+
+        .player-card {
+            padding: 10px 15px;
+            background: rgba(20, 20, 40, 0.7);
+            border-radius: 8px;
+            border: 1px solid var(--neon-purple);
+            text-align: center;
+            flex: 1;
+            margin: 0 5px;
+        }
+
+        .player-card.connected {
+            border-color: var(--neon-cyan);
+        }
+
+        .player-card.active {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        .chat-panel {
+            width: 100%;
+            max-width: 400px;
+            margin-top: 10px;
+        }
+
+        .chat-box {
+            height: 100px;
+            overflow-y: auto;
+            border: 1px solid var(--neon-purple);
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .chat-message {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .chat-message.own {
+            background: rgba(0, 255, 255, 0.1);
+            text-align: right;
+        }
+
+        .chat-message.other {
+            background: rgba(255, 0, 255, 0.1);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .share-link {
+            word-break: break-all;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .game-board {
+                gap: 8px;
+                padding: 10px;
+            }
+            
+            .cell {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>P2P ХРЕСТИКИ-НОЛИКИ</h1>
+        
+        <div id="connection-panel" class="connection-panel">
+            <h3>🔗 Підключення до друга</h3>
+            
+            <div id="host-section">
+                <p>Створіть гру та поділіться посиланням:</p>
+                <button class="cyber-button" onclick="createGame()">🎮 Створити гру</button>
+                <div id="game-info" class="hidden">
+                    <div>ID гри: <span id="game-id" class="game-id">---</span></div>
+                    <div class="share-link" id="share-link"></div>
+                    <button class="cyber-button" onclick="copyLink()">📋 Копіювати посилання</button>
+                    <div id="enter-game-section" style="margin-top: 15px;">
+                        <p style="font-size: 0.9em; opacity: 0.8; margin-bottom: 10px;">
+                            Після того як поділитесь посиланням, натисніть:
+                        </p>
+                        <button class="cyber-button" onclick="enterGameAsHost()">🎮 Увійти в гру</button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin: 20px 0; border-top: 1px solid var(--neon-purple); padding-top: 20px;">
+                <p>Або приєднайтесь до існуючої гри:</p>
+                <div class="input-group">
+                    <input type="text" id="join-game-id" placeholder="Введіть ID гри" maxlength="8">
+                </div>
+                <button class="cyber-button" onclick="joinGame()">🔗 Приєднатись</button>
+            </div>
+
+            <div id="connection-status" class="status">
+                ⏳ Оберіть дію вище
+            </div>
+        </div>
+
+        <div id="game-section" class="hidden">
+            <div class="players-info">
+                <div id="player1-card" class="player-card">
+                    <div>👤 Гравець 1 (X)</div>
+                    <div class="player-icon player-x">X</div>
+                    <div id="player1-status">Очікування...</div>
+                </div>
+                <div id="player2-card" class="player-card">
+                    <div>👤 Гравець 2 (O)</div>
+                    <div class="player-icon player-o">O</div>
+                    <div id="player2-status">Очікування...</div>
+                </div>
+            </div>
+
+            <div class="game-info">
+                <div class="player-turn">
+                    <div id="current-player-icon" class="player-icon player-x">X</div>
+                    <span id="turn-text">Очікування гравців...</span>
+                </div>
+                <div class="status" id="game-status">Підготовка до гри</div>
+            </div>
+
+            <div class="game-board" id="board"></div>
+
+            <div class="chat-panel">
+                <div class="chat-box" id="chat-box"></div>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="chat-input" placeholder="Повідомлення..." 
+                           style="flex: 1; padding: 8px; background: rgba(0,0,0,0.3); 
+                                  border: 1px solid var(--neon-purple); color: white; border-radius: 4px;">
+                    <button class="cyber-button" onclick="sendMessage()">📤</button>
+                </div>
+            </div>
+
+            <button class="cyber-button" onclick="resetGame()" style="margin-top: 15px;">🔄 Нова гра</button>
+            <button class="cyber-button" onclick="backToMenu()" style="margin-top: 10px;">← Повернутись</button>
+        </div>
+    </div>
+
+    <script>
+        // 🔧 ВАША КОНФІГУРАЦІЯ FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyA34BMOoZoRptc7ex4-omulWu0VoDGL6bs",
+            authDomain: "tictactoe-p2p.firebaseapp.com",
+            databaseURL: "https://tictactoe-p2p-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "tictactoe-p2p",
+            storageBucket: "tictactoe-p2p.firebasestorage.app",
+            messagingSenderId: "844511496377",
+            appId: "1:844511496377:web:59a1fecab3cd85f85f3368"
+        };
+
+        // Ініціалізація Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log('✅ Firebase успішно ініціалізовано');
+        } catch (error) {
+            console.error('❌ Помилка ініціалізації Firebase:', error);
+            alert('Помилка підключення до бази даних. Перевірте конфігурацію Firebase.');
+        }
+
+        const database = firebase.database();
+
+        // Глобальні змінні
+        let currentGame = {
+            id: null,
+            isHost: false,
+            board: ['', '', '', '', '', '', '', '', ''],
+            currentPlayer: 'X',
+            gameOver: false,
+            mySymbol: 'X',
+            gameState: 'waiting'
+        };
+
+        let gameRef = null;
+
+        // Генерація ID гри
+        function generateGameId() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Створення гри (тільки показуємо ID, не створюємо в Firebase)
+        function createGame() {
+            const gameId = generateGameId();
+            currentGame.id = gameId;
+            
+            // Показуємо інформацію про гру, але НЕ переходимо відразу
+            document.getElementById('game-id').textContent = gameId;
+            document.getElementById('game-info').classList.remove('hidden');
+            
+            const gameUrl = `${window.location.origin}${window.location.pathname}?game=${gameId}`;
+            document.getElementById('share-link').textContent = gameUrl;
+            
+            document.getElementById('connection-status').textContent = '📋 ID гри готовий! Скопіюйте та надішліть другу';
+            document.getElementById('connection-status').className = 'status';
+        }
+
+        // Вхід в гру як хост (після копіювання посилання)
+        function enterGameAsHost() {
+            currentGame.isHost = true;
+            currentGame.mySymbol = 'X';
+            currentGame.gameState = 'waiting';
+
+            // Створення гри в Firebase
+            gameRef = database.ref('games/' + currentGame.id);
+            
+            const gameData = {
+                id: currentGame.id,
+                host: true,
+                board: currentGame.board,
+                currentPlayer: currentGame.currentPlayer,
+                gameOver: currentGame.gameOver,
+                gameState: currentGame.gameState,
+                players: {
+                    player1: { connected: true, symbol: 'X' },
+                    player2: { connected: false, symbol: 'O' }
+                },
+                chat: {},
+                createdAt: Date.now(),
+                lastUpdate: Date.now()
+            };
+
+            gameRef.set(gameData)
+                .then(() => {
+                    console.log('🎮 Гра створена в Firebase:', currentGame.id);
+                    showGameSection();
+                    setupGameListener();
+                    addChatMessage('Система', '🎮 Гра створена! Очікуємо гравця 2...');
+                })
+                .catch((error) => {
+                    console.error('❌ Помилка створення гри:', error);
+                    alert('Помилка створення гри: ' + error.message);
+                });
+        }
+
+        // Приєднання до гри
+        function joinGame() {
+            const gameId = document.getElementById('join-game-id').value.trim().toUpperCase();
+            if (!gameId) {
+                alert('Введіть ID гри');
+                return;
+            }
+
+            currentGame.id = gameId;
+            currentGame.isHost = false;
+            currentGame.mySymbol = 'O';
+
+            // Перевірка чи гра існує
+            gameRef = database.ref('games/' + gameId);
+            
+            gameRef.once('value')
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const gameData = snapshot.val();
+                        
+                        // Оновлюємо гру - додаємо гравця 2
+                        gameRef.update({
+                            'players/player2/connected': true,
+                            'gameState': 'playing',
+                            'lastUpdate': Date.now()
+                        })
+                        .then(() => {
+                            console.log('🔗 Приєднано до гри:', gameId);
+                            showGameSection();
+                            setupGameListener();
+                            addChatMessage('Система', '✅ Ви приєдналися до гри як Гравець 2 (O)');
+                        });
+                    } else {
+                        alert('Гра з таким ID не знайдена!');
+                    }
+                })
+                .catch((error) => {
+                    console.error('❌ Помилка приєднання:', error);
+                    alert('Помилка приєднання до гри: ' + error.message);
+                });
+        }
+
+        // Налаштування слухача оновлень гри
+        function setupGameListener() {
+            gameRef.on('value', (snapshot) => {
+                const gameData = snapshot.val();
+                if (gameData) {
+                    updateGameState(gameData);
+                }
+            });
+        }
+
+        // Оновлення стану гри
+        function updateGameState(gameData) {
+            // Оновлюємо дошку
+            currentGame.board = gameData.board || currentGame.board;
+            currentGame.currentPlayer = gameData.currentPlayer || currentGame.currentPlayer;
+            currentGame.gameOver = gameData.gameOver || currentGame.gameOver;
+            currentGame.gameState = gameData.gameState || currentGame.gameState;
+
+            // Оновлюємо статуси гравців
+            updatePlayersInfo(gameData.players);
+
+            // Оновлюємо чат
+            if (gameData.chat) {
+                updateChat(gameData.chat);
+            }
+
+            // Малюємо дошку
+            drawBoard();
+            updateGameStatus();
+
+            // Сповіщення про новий хід
+            if (gameData.lastMove && gameData.lastMove.player !== currentGame.mySymbol) {
+                addChatMessage('Система', `Гравець ${gameData.lastMove.player} зробив хід`);
+            }
+        }
+
+        // Оновлення інформації про гравців
+        function updatePlayersInfo(players) {
+            const player1Status = document.getElementById('player1-status');
+            const player2Status = document.getElementById('player2-status');
+            const player1Card = document.getElementById('player1-card');
+            const player2Card = document.getElementById('player2-card');
+
+            if (players && players.player1 && players.player1.connected) {
+                player1Status.textContent = currentGame.isHost ? 'Ви' : 'Підключений';
+                player1Status.style.color = '#0f0';
+                player1Card.classList.add('connected');
+            } else {
+                player1Status.textContent = 'Відключений';
+                player1Status.style.color = '#ff4444';
+                player1Card.classList.remove('connected');
+            }
+
+            if (players && players.player2 && players.player2.connected) {
+                player2Status.textContent = !currentGame.isHost ? 'Ви' : 'Підключений';
+                player2Status.style.color = '#0f0';
+                player2Card.classList.add('connected');
+            } else {
+                player2Status.textContent = 'Відключений';
+                player2Status.style.color = '#ff4444';
+                player2Card.classList.remove('connected');
+            }
+
+            // Визначаємо активного гравця
+            player1Card.classList.remove('active');
+            player2Card.classList.remove('active');
+            if (currentGame.isHost) {
+                player1Card.classList.add('active');
+            } else {
+                player2Card.classList.add('active');
+            }
+        }
+
+        // Оновлення чату
+        function updateChat(chatMessages) {
+            const chatBox = document.getElementById('chat-box');
+            const currentMessages = Array.from(chatBox.children).map(msg => msg.textContent);
+            
+            // Перетворюємо об'єкт в масив
+            const messagesArray = Object.values(chatMessages || {});
+            
+            messagesArray.forEach(msg => {
+                const messageText = `${msg.sender}: ${msg.message}`;
+                if (!currentMessages.includes(messageText)) {
+                    const isOwn = msg.sender === (currentGame.isHost ? 'Гравець 1' : 'Гравець 2');
+                    addChatMessage(msg.sender, msg.message, isOwn);
+                }
+            });
+        }
+
+        // Зробити хід
+        function makeMove(cellIndex) {
+            if (currentGame.gameOver || currentGame.board[cellIndex] !== '') return;
+            if (currentGame.currentPlayer !== currentGame.mySymbol) {
+                addChatMessage('Система', '⏳ Зачекайте вашого ходу!');
+                return;
+            }
+
+            currentGame.board[cellIndex] = currentGame.mySymbol;
+            
+            // Перевірка переможця
+            let gameOver = false;
+            if (checkWinner()) {
+                gameOver = true;
+                addChatMessage('Система', `🎉 Гравець ${currentGame.mySymbol} переміг!`);
+                highlightWinningCells();
+            } else if (isBoardFull()) {
+                gameOver = true;
+                addChatMessage('Система', '🤝 Нічия!');
+            }
+
+            // Оновлення гри в Firebase
+            const updateData = {
+                board: currentGame.board,
+                currentPlayer: currentGame.currentPlayer === 'X' ? 'O' : 'X',
+                gameOver: gameOver,
+                lastMove: {
+                    player: currentGame.mySymbol,
+                    cell: cellIndex,
+                    timestamp: Date.now()
+                },
+                lastUpdate: Date.now()
+            };
+
+            if (gameOver) {
+                updateData.gameState = 'finished';
+            }
+
+            gameRef.update(updateData)
+                .then(() => {
+                    drawBoard();
+                    updateGameStatus();
+                    addChatMessage(currentGame.isHost ? 'Гравець 1' : 'Гравець 2', 
+                                 `Зробив хід ${currentGame.mySymbol} на клітинку ${cellIndex + 1}`, true);
+                })
+                .catch((error) => {
+                    console.error('❌ Помилка оновлення гри:', error);
+                });
+        }
+
+        // Надсилання повідомлення
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (message) {
+                const sender = currentGame.isHost ? 'Гравець 1' : 'Гравець 2';
+                const chatMessage = {
+                    sender: sender,
+                    message: message,
+                    timestamp: Date.now()
+                };
+
+                // Додаємо повідомлення до чату в Firebase
+                gameRef.child('chat').push(chatMessage)
+                    .then(() => {
+                        addChatMessage(sender, message, true);
+                        input.value = '';
+                    })
+                    .catch((error) => {
+                        console.error('❌ Помилка відправки повідомлення:', error);
+                    });
+            }
+        }
+
+        function showGameSection() {
+            document.getElementById('connection-panel').classList.add('hidden');
+            document.getElementById('game-section').classList.remove('hidden');
+            drawBoard();
+            updateGameStatus();
+        }
+
+        function drawBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+
+            currentGame.board.forEach((cell, index) => {
+                const cellElement = document.createElement('div');
+                cellElement.className = `cell ${cell.toLowerCase()}`;
+                cellElement.textContent = cell;
+                
+                if (cell === '' && !currentGame.gameOver && canMakeMove()) {
+                    cellElement.onclick = () => makeMove(index);
+                    cellElement.style.cursor = 'pointer';
+                } else {
+                    cellElement.style.cursor = 'not-allowed';
+                    cellElement.style.opacity = cell === '' ? '0.5' : '0.7';
+                }
+                
+                boardElement.appendChild(cellElement);
+            });
+        }
+
+        function canMakeMove() {
+            return currentGame.gameState === 'playing' && 
+                   currentGame.currentPlayer === currentGame.mySymbol;
+        }
+
+        function checkWinner() {
+            const winPatterns = [
+                [0,1,2], [3,4,5], [6,7,8],
+                [0,3,6], [1,4,7], [2,5,8],
+                [0,4,8], [2,4,6]
+            ];
+
+            for (let pattern of winPatterns) {
+                const [a,b,c] = pattern;
+                if (currentGame.board[a] && 
+                    currentGame.board[a] === currentGame.board[b] && 
+                    currentGame.board[a] === currentGame.board[c]) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function isBoardFull() {
+            return currentGame.board.every(cell => cell !== '');
+        }
+
+        function highlightWinningCells() {
+            const winPatterns = [
+                [0,1,2], [3,4,5], [6,7,8],
+                [0,3,6], [1,4,7], [2,5,8],
+                [0,4,8], [2,4,6]
+            ];
+
+            for (let pattern of winPatterns) {
+                const [a,b,c] = pattern;
+                if (currentGame.board[a] && 
+                    currentGame.board[a] === currentGame.board[b] && 
+                    currentGame.board[a] === currentGame.board[c]) {
+                    const cells = document.querySelectorAll('.cell');
+                    cells[a].classList.add('win');
+                    cells[b].classList.add('win');
+                    cells[c].classList.add('win');
+                    break;
+                }
+            }
+        }
+
+        function updateGameStatus() {
+            const statusElement = document.getElementById('game-status');
+            const turnText = document.getElementById('turn-text');
+            const playerIcon = document.getElementById('current-player-icon');
+            
+            playerIcon.className = `player-icon player-${currentGame.currentPlayer.toLowerCase()}`;
+            playerIcon.textContent = currentGame.currentPlayer;
+
+            if (currentGame.gameOver) {
+                statusElement.textContent = 'Гра завершена';
+                turnText.textContent = 'Гра завершена';
+                playerIcon.style.opacity = '0.5';
+            } else if (currentGame.gameState === 'waiting') {
+                statusElement.textContent = 'Очікування гравців';
+                turnText.textContent = 'Очікування гравців';
+                playerIcon.style.opacity = '0.5';
+            } else {
+                if (canMakeMove()) {
+                    statusElement.textContent = 'Ваш хід!';
+                    statusElement.className = 'status connected';
+                    turnText.textContent = 'Ваш хід';
+                    playerIcon.style.opacity = '1';
+                } else {
+                    statusElement.textContent = 'Хід суперника';
+                    statusElement.className = 'status';
+                    turnText.textContent = 'Хід суперника';
+                    playerIcon.style.opacity = '0.5';
+                }
+            }
+        }
+
+        function addChatMessage(sender, message, isOwn = false) {
+            const chatBox = document.getElementById('chat-box');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${isOwn ? 'own' : 'other'}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function resetGame() {
+            const resetData = {
+                board: ['', '', '', '', '', '', '', '', ''],
+                currentPlayer: 'X',
+                gameOver: false,
+                gameState: 'playing',
+                lastUpdate: Date.now()
+            };
+
+            // Очищення візуального стану клітинок
+            document.querySelectorAll('.cell').forEach((cell, index) => {
+                cell.textContent = '';
+                cell.classList.remove('x-mark', 'o-mark', 'winner-cell');
+                cell.style.pointerEvents = 'auto'; // Відновлення можливості кліку
+            });
+
+            gameRef.update(resetData)
+                .then(() => {
+                    addChatMessage('Система', '🔄 Гра перезапущена');
+                })
+                .catch((error) => {
+                    console.error('❌ Помилка скидання гри:', error);
+                });
+        }
+
+        function backToMenu() {
+            if (gameRef) {
+                gameRef.off(); // Відписуємось від оновлень
+            }
+            
+            document.getElementById('game-section').classList.add('hidden');
+            document.getElementById('connection-panel').classList.remove('hidden');
+            document.getElementById('game-info').classList.add('hidden');
+            document.getElementById('connection-status').textContent = 'Оберіть дію вище';
+            
+            document.getElementById('chat-box').innerHTML = '';
+            
+            currentGame = {
+                id: null,
+                isHost: false,
+                board: ['', '', '', '', '', '', '', '', ''],
+                currentPlayer: 'X',
+                gameOver: false,
+                mySymbol: 'X',
+                gameState: 'waiting'
+            };
+        }
+
+        function copyLink() {
+            const gameUrl = `${window.location.origin}${window.location.pathname}?game=${currentGame.id}`;
+            navigator.clipboard.writeText(gameUrl).then(() => {
+                alert('✅ Посилання скопійовано! Тепер надішліть його другу.');
+            });
+        }
+
+        // Автоматичне приєднання при завантаженні
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const gameId = urlParams.get('game');
+            
+            if (gameId) {
+                document.getElementById('join-game-id').value = gameId;
+                setTimeout(() => joinGame(), 1000);
+            }
+        });
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
