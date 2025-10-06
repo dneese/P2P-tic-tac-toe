@@ -9,7 +9,7 @@
 ### 🌟 Live Demo
 **Play now:** [https://dneese.github.io/P2P-tic-tac-toe/](https://dneese.github.io/P2P-tic-tac-toe/)
 
-![Game Screenshot](screenshot.png)
+![Game Screenshot](Screenshot.png)
 
 ### 📝 Description
 
@@ -139,7 +139,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### 🌟 Жива Демонстрація
 **Грати зараз:** [https://dneese.github.io/P2P-tic-tac-toe/](https://dneese.github.io/P2P-tic-tac-toe/)
 
-![Скріншот гри](screenshot.png)
+![Скріншот гри](Screenshot.png)
 
 ### 📝 Опис
 
