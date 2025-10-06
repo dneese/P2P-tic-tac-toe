@@ -825,13 +825,6 @@
                 lastUpdate: Date.now()
             };
 
-            // Очищення візуального стану клітинок
-            document.querySelectorAll('.cell').forEach((cell, index) => {
-                cell.textContent = '';
-                cell.classList.remove('x-mark', 'o-mark', 'winner-cell');
-                cell.style.pointerEvents = 'auto'; // Відновлення можливості кліку
-            });
-
             gameRef.update(resetData)
                 .then(() => {
                     addChatMessage('Система', '🔄 Гра перезапущена');
